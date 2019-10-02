@@ -14,52 +14,64 @@ from lxml import html
 from requests.cookies import RequestsCookieJar
 
 
+def dev_list(lis, n):
+    size = int(len(lis) / n)
+    res_list = np.array(lis[:size * n]).reshape(size, n).tolist()
+    if size * n < len(lis):
+        res_list.append(lis[size * n:])
+    return res_list
+
+
 class Spider(object):
     def __init__(self):
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
             'Referer': "http://www.mzitu.com/"
         }
-        self.baseUrl = "http://www.mzitu.com/"
-        self.session = requests.Session()
+        self.baseUrl = "https://www.mzitu.com"
         self.cookie_jar = RequestsCookieJar()
         self.cookie_jar.set("MZITU", "B1CCDD4B4BC886BF99364C72C8AE1C01:FG=1", domain="mzitu.com")
 
-    def getPage(self):
-        selector = html.fromstring(self.session.get(self.baseUrl).content)
+    def get_page(self):
+        print(self.baseUrl)
+        print(requests.get(self.baseUrl, headers=self.headers))
+        selector = html.fromstring(requests.get(self.baseUrl, headers=self.headers).content)
         urls = []
         for i in selector.xpath('//ul[@id="pins"]/li/a/@href'):
             urls.append(i)
+        print(urls)
         return urls
 
-    def getPicclink(self, url):
+    def get_pic_link(self, url):
         print("we visit:" + url)
         try:
-            sel = html.fromstring(self.session.get(url, cookies=self.cookie_jar).content)
+            sel = html.fromstring(requests.get(url, headers=self.headers).content)
         except Exception as e:
             print(e)
             return
         total = sel.xpath('//div[@class="pagenavi"]/a/span/text()')[-2]
         title = sel.xpath('//h2[@class="main-title"]/text()')[0]
         print(title + "  " + "总共: " + str(total) + "张")
-        jpglist = []
+        jpg_list = []
+        print("total:", total)
         for i in range(int(total)):
             link = "{}/{}".format(url, i + 1)
-            s = html.fromstring(self.session.get(link, cookies=self.cookie_jar).content)
-            jpglist.append(s.xpath('//div[@class="main-image"]/p/a/img/@src')[0])
-        return title, jpglist
+            print(link)
+            s = html.fromstring(requests.get(link, headers=self.headers).content)
+            jpg_list.append(s.xpath('//div[@class="main-image"]/p/a/img/@src')[0])
+        return title, jpg_list
 
-    def getPic(self, title, piclist):
-        count = len(piclist)
-        dirName = u"【%sP】%s" % (str(count), title)
-        if not os.path.exists(dirName):
-            os.makedirs(dirName)
+    def get_pic(self, title, pic_list):
+        count = len(pic_list)
+        dir_name = u"【%sP】%s" % (str(count), title)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
         k = 1
-        downlist = self.devlist(piclist, 60)  # 切换为10个下载一次
-        for per in downlist:
+        down_list = dev_list(pic_list, 60)  # 切换为10个下载一次
+        for per in down_list:
             threads = []
             for url in per:  # 开启多线程下载
-                filename = '%s/%s/%s.jpg' % (os.path.abspath('.'), dirName, k)
+                filename = '%s/%s/%s.jpg' % (os.path.abspath('.'), dir_name, k)
                 k = k + 1
                 t = Thread(target=self.download, args=[filename, url])
                 t.start()
@@ -72,24 +84,17 @@ class Spider(object):
             return
         with open(filename, "wb") as jpg:
             try:
-                jpg.write(self.session.get(url, headers=self.headers, timeout=60, cookies=self.cookie_jar).content)
+                jpg.write(requests.get(url, headers=self.headers, timeout=60).content)
                 print("下载成功:" + filename)
                 time.sleep(0.1)
             except Exception as e:
                 print(e)
 
-    def devlist(self, lis, n):
-        size = int(len(lis) / n)
-        reslis = np.array(lis[:size * n]).reshape(size, n).tolist()
-        if size * n < len(lis):
-            reslis.append(lis[size * n:])
-        return reslis
-
     def start(self):
-        urls = self.getPage()
+        urls = self.get_page()
         for item in urls:
-            title, piclist = self.getPicclink(item)
-            self.getPic(title, piclist)
+            title, pic_list = self.get_pic_link(item)
+            self.get_pic(title, pic_list)
             # break
 
 
