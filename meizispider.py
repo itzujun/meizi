@@ -58,7 +58,10 @@ class Spider(object):
             link = "{}/{}".format(url, i + 1)
             print(link)
             s = html.fromstring(requests.get(link, headers=self.headers).content)
-            jpg_list.append(s.xpath('//div[@class="main-image"]/p/a/img/@src')[0])
+            if len(s.xpath('//div[@class="main-image"]/p/a/img/@src')) > 0:
+                jpg_list.append(s.xpath('//div[@class="main-image"]/p/a/img/@src')[0])
+            else:
+                print("pass-----")
         return title, jpg_list
 
     def get_pic(self, title, pic_list):
